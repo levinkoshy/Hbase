@@ -1,0 +1,18 @@
+get 'iemployee', '1'
+//iemployee is the table; '1' is the row key.
+
+scan 'iemployee'
+//reads all the row keys in the table
+
+#create namespace
+create_namespace 'people'
+
+#create employees in people namespace
+create 'people:employees', 'work', 'demo'
+
+#drop namespace
+drop_namespace 'people'
+
+#alter namespace
+alter_namespace 'people', {Method => 'set', 'PROPERTY_NAME' => 'PROPERTY_VALUE'}
+

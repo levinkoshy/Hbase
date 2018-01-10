@@ -1,0 +1,60 @@
+//we need to create a logical connection in Apache phoenix for the tables we created in Hbase
+
+# create Phoenix version of sales table
+create view "sales_levin" (
+"row" VARCHAR primary key,
+"order"."orderID" VARCHAR,
+"order"."orderDate" VARCHAR,
+"order"."shipDate" VARCHAR,
+"order"."shipMode" VARCHAR,
+"order"."profit" VARCHAR,
+"order"."quantity" VARCHAR,
+"order"."sales" VARCHAR);
+
+//Apache phoenix- all the database objects will be in double quotes; all values(for ex: in where clause) will be in single quotes.
+
+select * from "sales" limit 10;
+
+# select top 10 rows by highest profit
+select * from "sales" order by "profit" desc limit 10;
+
+# filter results
+# identifiers are double quoted and values single quoted
+select * from "sales" WHERE "orderID"='CA-2011-100006' limit 10;
+
+# change output format to see all fields
+!outputformat vertical
+select * from "sales" WHERE "orderID"='CA-2011-100006' limit 10;
+
+# switch output back to normal
+!outputformat table
+
+# get distinct list of shipping modes
+select distinct "shipMode" from "sales";
+
+# get count of each ship modes
+select "shipMode", count(1)
+from "sales"
+group by "shipMode"
+order by count(1) desc;
+
+
+# truncate order date to month
+select substr("orderDate",1,7) from "sales" limit 10;
+
+# get count by month
+select substr("orderDate",1,7) as mt, count(1) as orders
+from "sales"
+group by substr("orderDate",1,7)
+order by mt
+limit 15;
+
+# create new table
+create table "monthlyOrders" ( "mt" varchar primary key, "orders" integer );
+
+# upsert data to new table
+upsert into "monthlyOrders"
+select substr("orderDate",1,7) as mt, count(1) as orders
+from "sales"
+group by substr("orderDate",1,7)
+order by mt;

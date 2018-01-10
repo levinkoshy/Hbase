@@ -16,3 +16,141 @@ drop_namespace 'people'
 #alter namespace
 alter_namespace 'people', {Method => 'set', 'PROPERTY_NAME' => 'PROPERTY_VALUE'}
 
+
+#insert or update into tables
+put 'sales', '5099', 'order:order_id', 'US-2014'
+
+
+#delete
+delete 'iemployee', '1', 'personal:city'
+
+
+///working on hbase shell
+hbase shell
+
+help
+version
+
+whoami
+status //-average load 70.50 seconds
+
+status 'simple' //- more information + number of regions
+
+list //-lists all the tables in the hbase
+
+!describe 'employees' //give the column families associated with the table
+
+//create table
+
+create 'sales_levin','order' //creates a table named sales with a single column family order
+
+!describe 'sales_levin'
+
+# download data from github and store in sales.csv in the root
+curl -o ~/sales.csv https://raw.githubusercontent.com/bsullins/data/master/salesOrders.csv
+
+sed -i '1d' sales.csv
+//1d - ist row
+
+hadoop fs -copyFromLocal ~/sales.csv /user/levinkoshy/sales
+
+//From root
+//to import sales.csv to hbase
+hbase org.apache.hadoop.hbase.mapreduce.ImportTsv -Dimporttsv.separator=, -Dimporttsv.columns="\
+HBASE_ROW_KEY, \
+order:orderID, \
+order:orderDate, \
+order:shipDate, \
+order:shipMode, \
+order:profit, \
+order:quantity, \
+order:sales" sales_levin hdfs:/user/levinkoshy/sales.csv
+
+//in hbase shell
+scan 'sales_levin'
+
+//we are adding column to the new row// adding new rows which represents the different column values
+
+put 'sales_levin','5010','order:orderID','US-2014-169552'
+put 'sales_levin','5010','order:orderDate','2017-10-01'
+put 'sales_levin','5010','order:shipDate','2017-10-13 03:25:03.567'
+put 'sales_levin','5010','order:shipMode','Standard'
+put 'sales_levin','5010','order:profit','237.76'
+put 'sales_levin','5010','order:quantity','15'
+put 'sales_levin','5010','order:sales','745.93'
+
+get 'sales_levin' ,'5010'
+
+//for upsert - put itself works
+put 'sales_levin','5010','order:shipMode','Standard Class'
+
+
+//Apache phoenix- To perform sql operations on Hbase
+cd /usr/hdp/current/phoenix-client/bin
+
+# launch Phoenix shell
+./sqlline.py localhost
+
+!tables / list the tables 
+
+//we need to create a logical connection in Apache phoenix for the tables we created in Hbase
+
+# create Phoenix version of sales table
+create view "sales_levin" (
+"row" VARCHAR primary key,
+"order"."orderID" VARCHAR,
+"order"."orderDate" VARCHAR,
+"order"."shipDate" VARCHAR,
+"order"."shipMode" VARCHAR,
+"order"."profit" VARCHAR,
+"order"."quantity" VARCHAR,
+"order"."sales" VARCHAR);
+
+//Apache phoenix- all the database objects will be in double quotes; all values(for ex: in where clause) will be in single quotes.
+
+select * from "sales" limit 10;
+
+# select top 10 rows by highest profit
+select * from "sales" order by "profit" desc limit 10;
+
+# filter results
+# identifiers are double quoted and values single quoted
+select * from "sales" WHERE "orderID"='CA-2011-100006' limit 10;
+
+# change output format to see all fields
+!outputformat vertical
+select * from "sales" WHERE "orderID"='CA-2011-100006' limit 10;
+
+# switch output back to normal
+!outputformat table
+
+# get distinct list of shipping modes
+select distinct "shipMode" from "sales";
+
+# get count of each ship modes
+select "shipMode", count(1)
+from "sales"
+group by "shipMode"
+order by count(1) desc;
+
+
+# truncate order date to month
+select substr("orderDate",1,7) from "sales" limit 10;
+
+# get count by month
+select substr("orderDate",1,7) as mt, count(1) as orders
+from "sales"
+group by substr("orderDate",1,7)
+order by mt
+limit 15;
+
+# create new table
+create table "monthlyOrders" ( "mt" varchar primary key, "orders" integer );
+
+# upsert data to new table
+upsert into "monthlyOrders"
+select substr("orderDate",1,7) as mt, count(1) as orders
+from "sales"
+group by substr("orderDate",1,7)
+order by mt;
+
